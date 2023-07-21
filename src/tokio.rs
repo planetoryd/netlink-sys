@@ -30,6 +30,7 @@ impl AsRawFd for TokioSocket {
 }
 
 impl AsyncSocket for TokioSocket {
+    type T = ();
     fn socket_ref(&self) -> &Socket {
         self.0.get_ref()
     }
@@ -39,7 +40,7 @@ impl AsyncSocket for TokioSocket {
         self.0.get_mut()
     }
 
-    fn new(protocol: isize) -> io::Result<Self> {
+    fn new(protocol: isize, ctx: ()) -> io::Result<Self> {
         let socket = Socket::new(protocol)?;
         socket.set_non_blocking(true)?;
         Ok(Self(AsyncFd::new(socket)?))

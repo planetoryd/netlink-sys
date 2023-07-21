@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+#![feature(adt_const_params)]
 
 pub mod constants;
 pub mod protocols {
@@ -28,6 +29,10 @@ pub use self::async_socket_ext::AsyncSocketExt;
 mod tokio;
 #[cfg(feature = "tokio_socket")]
 pub use self::tokio::TokioSocket;
+
+// for convenience let's just stick to tokio here
+#[cfg(feature = "tokio_socket")]
+pub mod proxy;
 
 #[cfg(feature = "smol_socket")]
 mod smol;

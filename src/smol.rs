@@ -73,6 +73,7 @@ impl SmolSocket {
 }
 
 impl AsyncSocket for SmolSocket {
+    type T = ();
     fn socket_ref(&self) -> &Socket {
         self.0.get_ref()
     }
@@ -82,7 +83,7 @@ impl AsyncSocket for SmolSocket {
         self.0.get_mut()
     }
 
-    fn new(protocol: isize) -> io::Result<Self> {
+    fn new(protocol: isize, ctx: ()) -> io::Result<Self> {
         let socket = Socket::new(protocol)?;
         Ok(Self(Async::new(socket)?))
     }

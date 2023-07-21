@@ -9,14 +9,19 @@ use crate::{Socket, SocketAddr};
 
 /// Trait to support different async backends
 pub trait AsyncSocket: Sized + Unpin {
+    type T;
     /// Access underyling [`Socket`]
-    fn socket_ref(&self) -> &Socket;
+    fn socket_ref(&self) -> &Socket {
+        unreachable!()
+    }
 
     /// Mutable access to underyling [`Socket`]
-    fn socket_mut(&mut self) -> &mut Socket;
+    fn socket_mut(&mut self) -> &mut Socket {
+        unreachable!()
+    }
 
     /// Wrapper for [`Socket::new`]
-    fn new(protocol: isize) -> io::Result<Self>;
+    fn new(protocol: isize, ctx: Self::T) -> io::Result<Self>;
 
     /// Polling wrapper for [`Socket::send`]
     fn poll_send(
@@ -43,7 +48,10 @@ pub trait AsyncSocket: Sized + Unpin {
         buf: &mut B,
     ) -> Poll<io::Result<()>>
     where
-        B: bytes::BufMut;
+        B: bytes::BufMut,
+    {
+        unreachable!()
+    }
 
     /// Polling wrapper for [`Socket::recv_from`]
     ///
@@ -55,7 +63,10 @@ pub trait AsyncSocket: Sized + Unpin {
         buf: &mut B,
     ) -> Poll<io::Result<SocketAddr>>
     where
-        B: bytes::BufMut;
+        B: bytes::BufMut,
+    {
+        unreachable!()
+    }
 
     /// Polling wrapper for [`Socket::recv_from_full`]
     ///
@@ -64,5 +75,7 @@ pub trait AsyncSocket: Sized + Unpin {
     fn poll_recv_from_full(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<io::Result<(Vec<u8>, SocketAddr)>>;
+    ) -> Poll<io::Result<(Vec<u8>, SocketAddr)>> {
+        unreachable!()
+    }
 }

@@ -15,9 +15,10 @@
 
 use std::process;
 
-use netlink_packet_audit::{
-    AuditMessage, NetlinkBuffer, NetlinkMessage, StatusMessage, NLM_F_ACK,
-    NLM_F_REQUEST,
+use netlink_packet_audit::{AuditMessage, StatusMessage};
+
+use netlink_packet_core::{
+    NetlinkBuffer, NetlinkMessage, NLM_F_ACK, NLM_F_REQUEST,
 };
 
 use netlink_sys::{
@@ -31,7 +32,7 @@ const AUDIT_STATUS_PID: u32 = 4;
 #[async_std::main]
 async fn main() {
     let kernel_unicast: SocketAddr = SocketAddr::new(0, 0);
-    let mut socket = SmolSocket::new(NETLINK_AUDIT).unwrap();
+    let mut socket = SmolSocket::new(NETLINK_AUDIT, ()).unwrap();
 
     let mut status = StatusMessage::new();
     status.enabled = 1;

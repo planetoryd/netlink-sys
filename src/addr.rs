@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::{
+    convert::TryInto,
     fmt,
     hash::{Hash, Hasher},
     mem,
@@ -98,6 +99,12 @@ use std::{
 #[derive(Copy, Clone)]
 pub struct SocketAddr(pub(crate) libc::sockaddr_nl);
 
+impl Default for SocketAddr {
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
+    }
+}
+
 impl Hash for SocketAddr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.nl_family.hash(state);
@@ -189,5 +196,27 @@ impl SocketAddr {
             &mut self.0 as *mut libc::sockaddr_nl as *mut libc::sockaddr;
         let addr_len = mem::size_of::<libc::sockaddr_nl>() as libc::socklen_t;
         (addr_ptr, addr_len)
+    }
+
+    pub const LEN: usize = 12;
+
+    pub fn serialize(&self) -> [u8; Self::LEN] {
+        let mut v = [0; Self::LEN];
+        v[..=1].copy_from_slice(&self.0.nl_family.to_be_bytes());
+        v[2..=5].copy_from_slice(&self.0.nl_groups.to_be_bytes());
+        v[6..=9].copy_from_slice(&self.0.nl_pid.to_be_bytes());
+        v
+    }
+
+    pub fn deserialize(buf: &[u8; Self::LEN]) -> Self {
+        let nl_family = u16::from_be_bytes(buf[..=1].try_into().unwrap());
+        let nl_groups = u32::from_be_bytes(buf[2..=5].try_into().unwrap());
+        let nl_pid = u32::from_be_bytes(buf[6..=9].try_into().unwrap());
+
+        let mut addr: libc::sockaddr_nl = unsafe { mem::zeroed() };
+        addr.nl_family = nl_family;
+        addr.nl_pid = nl_pid;
+        addr.nl_groups = nl_groups;
+        Self(addr)
     }
 }

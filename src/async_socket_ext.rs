@@ -85,17 +85,16 @@ pub struct PollSendTo<'a, 'b, S> {
     addr: &'b SocketAddr,
 }
 
-impl<S> Future for PollSendTo<'_, '_, S>
-where
-    S: AsyncSocket,
+impl<S: AsyncSocket> Future for PollSendTo<'_, '_, S>
 {
     type Output = io::Result<usize>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this: &mut Self = Pin::into_inner(self);
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output>
+{         let this: &mut Self = Pin::into_inner(self);
         this.socket.poll_send_to(cx, this.buf, this.addr)
     }
 }
+
 
 pub struct PollRecv<'a, 'b, S, B> {
     socket: &'a mut S,

@@ -24,7 +24,7 @@ use tokio::{
     task::spawn_blocking,
 };
 
-use crate::{AsyncSocket, AsyncSocketExt, SmolSocket, SocketAddr, TokioSocket};
+use crate::{AsyncSocket, AsyncSocketExt, SocketAddr, TokioSocket};
 
 /// Each proxySocket takes exclusive control of a UnixStream.
 pub struct ProxySocket<'a, const TYP: ProxySocketType> {
@@ -287,8 +287,8 @@ pub trait Initable<'a> {
 }
 
 impl EmptyInit for TokioSocket {}
-impl EmptyInit for SmolSocket {}
-trait EmptyInit {}
+
+pub trait EmptyInit {}
 
 impl<'a, T: EmptyInit> Initable<'a> for T {
     type F = Ready<()>;

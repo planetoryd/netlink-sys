@@ -14,8 +14,13 @@ use log::trace;
 
 use crate::{AsyncSocket, Socket, SocketAddr};
 
+
 /// An I/O object representing a Netlink socket.
 pub struct SmolSocket(Async<Socket>);
+
+use crate::proxy::EmptyInit;
+
+impl EmptyInit for SmolSocket {}
 
 impl FromRawFd for SmolSocket {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {

@@ -9,7 +9,7 @@ use crate::{Socket, SocketAddr};
 
 /// Trait to support different async backends
 pub trait AsyncSocket: Sized + Unpin {
-    type T;
+    type T<'a>;
     /// Access underyling [`Socket`]
     fn socket_ref(&self) -> &Socket {
         unreachable!()
@@ -21,7 +21,7 @@ pub trait AsyncSocket: Sized + Unpin {
     }
 
     /// Wrapper for [`Socket::new`]
-    fn new(protocol: isize, ctx: Self::T) -> io::Result<Self>;
+    fn new<'a>(protocol: isize, ctx: Self::T<'a>) -> io::Result<Self>;
 
     /// Polling wrapper for [`Socket::send`]
     fn poll_send(

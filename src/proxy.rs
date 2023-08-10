@@ -27,13 +27,12 @@ use tokio::{
 use crate::{AsyncSocket, AsyncSocketExt, SocketAddr, TokioSocket};
 
 /// Each proxySocket takes exclusive control of a UnixStream.
-pub struct ProxySocket<'a, const TYP: ProxySocketType> {
+pub struct ProxySocket<const TYP: ProxySocketType> {
     stream: UnixStream,
     header: Option<Window>,
     hbuf: Limit<BytesMut>,
     bytes_read: usize,
     proto: isize,
-    _ctx: &'a PhantomData<()>,
     remaining_buflen: usize,
     last_addr: SocketAddr,
 }
@@ -47,9 +46,9 @@ pub enum ProxySocketType {
     PollRecvFromFull,
 }
 
-impl<'a> AsyncSocket for ProxySocket<'a, { ProxySocketType::PollRecvFrom }> {
-    type T = &'a mut ProxyCtxP<'a>;
-    fn new(protocol: isize, ctx: Self::T) -> std::io::Result<Self> {
+impl AsyncSocket for ProxySocket<{ ProxySocketType::PollRecvFrom }> {
+    type T<'a> = &'a mut ProxyCtxP<'a>;
+    fn new(protocol: isize, ctx: Self::T<'_>) -> std::io::Result<Self> {
         let st = {
             // I have to block. I could refactor the trait tho.
             ctx.shared.pending.remove(&ctx.inode).ok_or(io::Error::new(
@@ -67,7 +66,6 @@ impl<'a> AsyncSocket for ProxySocket<'a, { ProxySocketType::PollRecvFrom }> {
             hbuf: buf.limit(Window::BUF_LEN),
             bytes_read: 0,
             proto: protocol,
-            _ctx: &PhantomData,
             remaining_buflen: 0,
             last_addr: SocketAddr::default()
         })
@@ -183,7 +181,7 @@ impl<'a> AsyncSocket for ProxySocket<'a, { ProxySocketType::PollRecvFrom }> {
 
 
 /// remember to init
-impl<'a, const TYP: ProxySocketType> ProxySocket<'a, TYP> {
+impl<const TYP: ProxySocketType> ProxySocket<TYP> {
     /// All upper layer polls should call this
     fn poll_proxy<B>(
         &mut self,
@@ -297,7 +295,7 @@ impl<'a, T: EmptyInit> Initable<'a> for T {
     }
 }
 
-impl<'a, const TYP: ProxySocketType> Initable<'a> for ProxySocket<'a, TYP> {
+impl<'a, const TYP: ProxySocketType> Initable<'a> for ProxySocket<TYP> {
     type F = ProxySocketInit<'a, TYP>;
     fn init(&'a self) -> Self::F {
         ProxySocketInit { socket: self }
@@ -305,7 +303,7 @@ impl<'a, const TYP: ProxySocketType> Initable<'a> for ProxySocket<'a, TYP> {
 }
 
 pub struct ProxySocketInit<'a, const TYP: ProxySocketType> {
-    socket: &'a ProxySocket<'a, TYP>,
+    socket: &'a ProxySocket<TYP>,
 }
 
 impl<'a, const TYP: ProxySocketType> Future for ProxySocketInit<'a, TYP> {
@@ -454,17 +452,18 @@ pub struct ProxyCtx {
 }
 
 impl ProxyCtx {
-    pub fn new(path: PathBuf) -> std::io::Result<Self> {
+    pub fn new(path: PathBuf) -> Result<Self> {
         if path.exists() {
             std::fs::remove_file(&path)?;
         }
+        log::trace!("bind {:?}", &path);
         Ok(Self {
             ul: UnixListener::bind(path)?,
             pending: HashMap::new(),
         })
     }
-    /// get subs of num and quit
-    pub async fn get_subs(&mut self, num: usize) -> std::io::Result<()> {
+    /// get subs of num and quit. 
+    pub async fn get_subs(&mut self, num: usize) -> Result<()> {
         while self.pending.len() < num {
             let (mut st, _addr) = self.ul.accept().await?;
             // addr will be anonymous, so no use. we don't use addr for id, just
@@ -564,6 +563,7 @@ pub async fn proxy<const TYP: ProxySocketType>(path: PathBuf) -> Result<()> {
 
     let res_handle = async move {
         loop {
+            log::trace!("proxy res");
             let (buf, win) = rx2.recv().await.unwrap();
             up_w.write_all(&win.serialize()).await?;
             up_w.write_all(&buf).await?;

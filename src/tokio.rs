@@ -30,7 +30,7 @@ impl AsRawFd for TokioSocket {
 }
 
 impl AsyncSocket for TokioSocket {
-    type T = ();
+    type T<'a> = ();
     fn socket_ref(&self) -> &Socket {
         self.0.get_ref()
     }

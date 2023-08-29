@@ -14,7 +14,7 @@ fn main() -> Result<(), String> {
         .unwrap();
 
     let future = async {
-        TokioSocket::new(NETLINK_AUDIT, ()).unwrap();
+        TokioSocket::new(NETLINK_AUDIT).unwrap();
     };
     rt.handle().block_on(future);
     Ok(())

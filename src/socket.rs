@@ -6,6 +6,8 @@ use std::{
     os::unix::io::{AsRawFd, FromRawFd, RawFd},
 };
 
+use bytes::buf::UninitSlice;
+
 use crate::SocketAddr;
 
 /// A netlink socket.
@@ -237,13 +239,11 @@ impl Socket {
     /// only ONE datagram, but this seems not to be always true for netlink
     /// sockets: with some protocols like `NETLINK_AUDIT`, multiple netlink
     /// packets can be read with a single call.
-    pub fn recv_from<B>(
+    pub fn recv_from(
         &self,
-        buf: &mut B,
+        chunk: &mut [u8],
         flags: libc::c_int,
     ) -> Result<(usize, SocketAddr)>
-    where
-        B: bytes::BufMut,
     {
         // Create an empty storage for the address. Note that Rust standard
         // library create a sockaddr_storage so that it works for any
@@ -278,7 +278,6 @@ impl Socket {
         // we need to create a pointer to it.
         let addrlen_ptr = &mut addrlen as *mut usize as *mut libc::socklen_t;
 
-        let chunk = buf.chunk_mut();
         //                        Cast the *mut u8 into *mut void.
         //                 This is equivalent to casting a *char into *void
         //                                   See [thread]
@@ -303,12 +302,6 @@ impl Socket {
         };
         if res < 0 {
             return Err(Error::last_os_error());
-        } else {
-            // with `MSG_TRUNC` `res` might exceed `buf_len`
-            let written = std::cmp::min(buf_len, res as usize);
-            unsafe {
-                buf.advance_mut(written);
-            }
         }
         Ok((res as usize, SocketAddr(addr)))
     }
@@ -316,23 +309,17 @@ impl Socket {
     /// For a connected socket, `recv` reads a datagram from the socket. The
     /// sender is the remote peer the socket is connected to (see
     /// [`Socket::connect`]). See also [`Socket::recv_from`]
-    pub fn recv<B>(&self, buf: &mut B, flags: libc::c_int) -> Result<usize>
-    where
-        B: bytes::BufMut,
-    {
-        let chunk = buf.chunk_mut();
+    pub fn recv(
+        &self,
+        chunk: &mut [u8],
+        flags: libc::c_int,
+    ) -> Result<usize> {
         let buf_ptr = chunk.as_mut_ptr() as *mut libc::c_void;
         let buf_len = chunk.len() as libc::size_t;
 
         let res = unsafe { libc::recv(self.0, buf_ptr, buf_len, flags) };
         if res < 0 {
             return Err(Error::last_os_error());
-        } else {
-            // with `MSG_TRUNC` `res` might exceed `buf_len`
-            let written = std::cmp::min(buf_len, res as usize);
-            unsafe {
-                buf.advance_mut(written);
-            }
         }
         Ok(res as usize)
     }
@@ -345,7 +332,6 @@ impl Socket {
         let mut buf: Vec<u8> = Vec::new();
         let (peek_len, _) =
             self.recv_from(&mut buf, libc::MSG_PEEK | libc::MSG_TRUNC)?;
-
         // Receive
         buf.clear();
         buf.reserve(peek_len);

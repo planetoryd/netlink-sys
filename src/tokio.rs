@@ -13,6 +13,7 @@ use tokio::io::unix::AsyncFd;
 use crate::{AsyncSocket, Socket, SocketAddr};
 
 /// An I/O object representing a Netlink socket.
+#[derive(Debug)]
 pub struct TokioSocket(AsyncFd<Socket>);
 
 impl FromRawFd for TokioSocket {
@@ -30,7 +31,6 @@ impl AsRawFd for TokioSocket {
 }
 
 impl AsyncSocket for TokioSocket {
-    type T<'a> = ();
     fn socket_ref(&self) -> &Socket {
         self.0.get_ref()
     }
@@ -40,7 +40,7 @@ impl AsyncSocket for TokioSocket {
         self.0.get_mut()
     }
 
-    fn new(protocol: isize, ctx: ()) -> io::Result<Self> {
+    fn new(protocol: isize) -> io::Result<Self> {
         let socket = Socket::new(protocol)?;
         socket.set_non_blocking(true)?;
         Ok(Self(AsyncFd::new(socket)?))
@@ -82,13 +82,11 @@ impl AsyncSocket for TokioSocket {
         }
     }
 
-    fn poll_recv<B>(
+    fn poll_recv(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<io::Result<()>>
-    where
-        B: bytes::BufMut,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>>
     {
         loop {
             // Check if the socket is readable. If not,
@@ -98,19 +96,17 @@ impl AsyncSocket for TokioSocket {
             let mut guard = ready!(self.0.poll_read_ready(cx))?;
 
             match guard.try_io(|inner| inner.get_ref().recv(buf, 0)) {
-                Ok(x) => return Poll::Ready(x.map(|_len| ())),
+                Ok(x) => return Poll::Ready(x),
                 Err(_would_block) => continue,
             }
         }
     }
 
-    fn poll_recv_from<B>(
+    fn poll_recv_from(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<io::Result<SocketAddr>>
-    where
-        B: bytes::BufMut,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<(usize, SocketAddr)>>
     {
         loop {
             trace!("poll_recv_from called");
@@ -120,7 +116,7 @@ impl AsyncSocket for TokioSocket {
             match guard.try_io(|inner| inner.get_ref().recv_from(buf, 0)) {
                 Ok(x) => {
                     trace!("poll_recv_from {:?} bytes read", x);
-                    return Poll::Ready(x.map(|(_len, addr)| addr));
+                    return Poll::Ready(x);
                 }
                 Err(_would_block) => {
                     trace!("poll_recv_from socket would block");

@@ -30,10 +30,6 @@ mod tokio;
 #[cfg(feature = "tokio_socket")]
 pub use self::tokio::TokioSocket;
 
-// for convenience let's just stick to tokio here
-#[cfg(feature = "tokio_socket")]
-pub mod proxy;
-
 #[cfg(feature = "smol_socket")]
 mod smol;
 #[cfg(feature = "smol_socket")]

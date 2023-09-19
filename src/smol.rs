@@ -14,13 +14,8 @@ use log::trace;
 
 use crate::{AsyncSocket, Socket, SocketAddr};
 
-
 /// An I/O object representing a Netlink socket.
 pub struct SmolSocket(Async<Socket>);
-
-use crate::proxy::EmptyInit;
-
-impl EmptyInit for SmolSocket {}
 
 impl FromRawFd for SmolSocket {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
@@ -78,7 +73,6 @@ impl SmolSocket {
 }
 
 impl AsyncSocket for SmolSocket {
-    type T = ();
     fn socket_ref(&self) -> &Socket {
         self.0.get_ref()
     }
@@ -88,7 +82,7 @@ impl AsyncSocket for SmolSocket {
         self.0.get_mut()
     }
 
-    fn new(protocol: isize, ctx: ()) -> io::Result<Self> {
+    fn new(protocol: isize) -> io::Result<Self> {
         let socket = Socket::new(protocol)?;
         Ok(Self(Async::new(socket)?))
     }
@@ -110,31 +104,23 @@ impl AsyncSocket for SmolSocket {
         self.poll_write_with(cx, |this| this.0.get_mut().send_to(buf, addr, 0))
     }
 
-    fn poll_recv<B>(
+    fn poll_recv(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<io::Result<()>>
-    where
-        B: bytes::BufMut,
-    {
-        self.poll_read_with(cx, |this| {
-            this.0.get_mut().recv(buf, 0).map(|_len| ())
-        })
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        self.poll_read_with(cx, |this| this.0.get_mut().recv(buf, 0))
     }
 
-    fn poll_recv_from<B>(
+    fn poll_recv_from(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<io::Result<SocketAddr>>
-    where
-        B: bytes::BufMut,
-    {
+        buf: &mut [u8],
+    ) -> Poll<io::Result<(usize, SocketAddr)>> {
         self.poll_read_with(cx, |this| {
             let x = this.0.get_mut().recv_from(buf, 0);
             trace!("poll_recv_from: {:?}", x);
-            x.map(|(_len, addr)| addr)
+            x.map(|(len, addr)| (len, addr))
         })
     }
 

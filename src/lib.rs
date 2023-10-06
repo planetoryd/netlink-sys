@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-#![feature(adt_const_params)]
+#![allow(unused)]
 
 pub mod constants;
 pub mod protocols {

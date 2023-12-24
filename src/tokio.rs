@@ -2,7 +2,10 @@
 
 use std::{
     io,
-    os::unix::io::{AsRawFd, FromRawFd, RawFd},
+    os::{
+        fd::OwnedFd,
+        unix::io::{AsRawFd, FromRawFd, RawFd},
+    },
     task::{Context, Poll},
 };
 
@@ -19,6 +22,14 @@ pub struct TokioSocket(AsyncFd<Socket>);
 impl FromRawFd for TokioSocket {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         let socket = Socket::from_raw_fd(fd);
+        socket.set_non_blocking(true).unwrap();
+        TokioSocket(AsyncFd::new(socket).unwrap())
+    }
+}
+
+impl From<OwnedFd> for TokioSocket {
+    fn from(value: OwnedFd) -> Self {
+        let socket = unsafe { Socket::from_raw_fd(value.as_raw_fd()) };
         socket.set_non_blocking(true).unwrap();
         TokioSocket(AsyncFd::new(socket).unwrap())
     }
@@ -86,8 +97,7 @@ impl AsyncSocket for TokioSocket {
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<io::Result<usize>>
-    {
+    ) -> Poll<io::Result<usize>> {
         loop {
             // Check if the socket is readable. If not,
             // AsyncFd::poll_read_ready would have arranged for the
@@ -106,8 +116,7 @@ impl AsyncSocket for TokioSocket {
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<io::Result<(usize, SocketAddr)>>
-    {
+    ) -> Poll<io::Result<(usize, SocketAddr)>> {
         loop {
             trace!("poll_recv_from called");
             let mut guard = ready!(self.0.poll_read_ready(cx))?;

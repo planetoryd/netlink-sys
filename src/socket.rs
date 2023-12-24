@@ -3,7 +3,13 @@
 use std::{
     io::{Error, Result},
     mem,
-    os::unix::io::{AsRawFd, FromRawFd, RawFd},
+    os::{
+        fd::AsFd,
+        unix::{
+            io::{AsRawFd, FromRawFd, RawFd},
+            prelude::BorrowedFd,
+        },
+    },
 };
 
 use bytes::buf::UninitSlice;
@@ -59,6 +65,12 @@ pub struct Socket(RawFd);
 impl AsRawFd for Socket {
     fn as_raw_fd(&self) -> RawFd {
         self.0
+    }
+}
+
+impl AsFd for Socket {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        unsafe { BorrowedFd::borrow_raw(self.as_raw_fd()) }
     }
 }
 
@@ -243,8 +255,7 @@ impl Socket {
         &self,
         chunk: &mut [u8],
         flags: libc::c_int,
-    ) -> Result<(usize, SocketAddr)>
-    {
+    ) -> Result<(usize, SocketAddr)> {
         // Create an empty storage for the address. Note that Rust standard
         // library create a sockaddr_storage so that it works for any
         // address family, but here, we already know that we'll have a
@@ -309,11 +320,7 @@ impl Socket {
     /// For a connected socket, `recv` reads a datagram from the socket. The
     /// sender is the remote peer the socket is connected to (see
     /// [`Socket::connect`]). See also [`Socket::recv_from`]
-    pub fn recv(
-        &self,
-        chunk: &mut [u8],
-        flags: libc::c_int,
-    ) -> Result<usize> {
+    pub fn recv(&self, chunk: &mut [u8], flags: libc::c_int) -> Result<usize> {
         let buf_ptr = chunk.as_mut_ptr() as *mut libc::c_void;
         let buf_len = chunk.len() as libc::size_t;
 
